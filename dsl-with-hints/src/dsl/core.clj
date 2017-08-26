@@ -25,14 +25,14 @@
 
 
 (def mapping
-  { 'day java.util.Calendar/DATE
-    'days java.util.Calendar/DATE
-    'week java.util.Calendar/WEEK_OF_YEAR
-    'weeks java.util.Calendar/WEEK_OF_YEAR
-    'month java.util.Calendar/MONTH
-    'months java.util.Calendar/MONTH
-    'year java.util.Calendar/YEAR
-    'years java.util.Calendar/YEAR})
+  { 'day 'java.util.Calendar/DATE
+    'days 'java.util.Calendar/DATE
+    'week 'java.util.Calendar/WEEK_OF_YEAR
+    'weeks 'java.util.Calendar/WEEK_OF_YEAR
+    'month 'java.util.Calendar/MONTH
+    'months 'java.util.Calendar/MONTH
+    'year 'java.util.Calendar/YEAR
+    'years 'java.util.Calendar/YEAR})
 
 
 (defn is-date?
@@ -42,7 +42,7 @@
 
 (defn transform-num
   [op num]
-  (if (= op '+)
+  (if (= op +)
     num
     (* num -1)))
 
@@ -90,23 +90,41 @@
 ;; Результат работы функции - новая дата, получаемая из календаря так: (.getTime cal)
 (defn d-add [date op num period]
   (let [n (transform-num op num)
-        p (transform-period period)
         c (get-calendar date)]
     (do
-      (.add c p n)
+      (.add c period n)
       (.getTime c))))
 
 ;; Можете использовать эту функцию для того, чтобы определить,
 ;; является ли список из 4-х элементов тем самым списком, который создает новую дату,
 ;; и который нужно обработать функцией d-add.
 (defn is-date-op? [code]
-  (let [op (second code)
-        period (last code)]
-    (and (= (count code) 4)
-         (or (= '+ op)
-             (= '- op))
-         (contains? #{'day 'days 'week 'weeks 'month 'months 'year 'years
-                      'hour 'hours 'minute 'minutes 'second 'seconds} period ))))
+  (and (= (count code) 4)
+       (or (= '+ (second code))
+           (= '- (second code)))
+       (contains? #{'day 'days 'week 'weeks 'month 'months 'year 'years
+                    'hour 'hours 'minute 'minutes 'second 'seconds} (last code) )))
+
+
+(defn is-date-cond? [code]
+  (let [op (first code)]
+    (and (= (count code) 3)
+         (contains? #{'> '< '>= '<=} op))))
+
+
+(defn form-with-mapped-period
+  [[date op num period]]
+  (list date op num (mapping period)))
+
+
+(defn subtitle
+  [form]
+  (if (seq? form)
+    (cond
+      (is-date-cond? form) (conj form 'd-op)
+      (is-date-op? form) (conj (form-with-mapped-period form) 'd-add)
+      :else form)
+    form))
 
 ;; В code содержится код-как-данные. Т.е. сам code -- коллекция, но его содержимое --
 ;; нормальный код на языке Clojure.
@@ -114,4 +132,4 @@
 ;; в которых выполняется сравнение, и подставить вместо этого кода вызов d-op;
 ;; а для списков из четырех элементов, в которых создаются даты, подставить функцию d-add.
 (defmacro with-datetime [& code]
-  :ImplementMe!)
+  `(do ~@(prewalk subtitle code)))
